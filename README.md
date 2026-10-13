@@ -2,6 +2,10 @@
 
 Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerungen, Schulferien, Feiertagen sowie Sonnen- und Mondinformationen. Für Debian und Raspberry Pi ist die Installation über das Debian-Paket der einfachste Weg.
 
+![LunaKalender](lunakalender1.png)
+
+[Github Seite](https://github.com/Angonikro/LunaKalender/)
+
 ## Funktionen
 
 - Monatsansicht mit Navigation und Hervorhebung des ausgewählten Tages
