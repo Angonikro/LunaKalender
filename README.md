@@ -1,4 +1,4 @@
-# LunaKalender 1.3.6
+# LunaKalender 1.3.8
 
 Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerungen, Schulferien, Feiertagen sowie Sonnen- und Mondinformationen. Für Debian und Raspberry Pi ist die Installation über das Debian-Paket der einfachste Weg.
 
@@ -17,10 +17,10 @@ Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerun
 
 ## Installation auf Debian / Raspberry Pi (empfohlen)
 
-Lade `lunakalender_1.3.6_all.deb` herunter und installiere es im Download-Ordner:
+Lade `lunakalender_1.3.8_all.deb` herunter und installiere es im Download-Ordner:
 
 ```bash
-sudo apt install ./lunakalender_1.3.6_all.deb
+sudo apt install ./lunakalender_1.3.8_all.deb
 ```
 
 Das Paket installiert die benötigten Systemabhängigkeiten. Eine virtuelle Umgebung (`venv`) ist nicht erforderlich.
