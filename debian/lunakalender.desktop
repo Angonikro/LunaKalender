@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LunaKalender
+Comment=Grafischer Kalender und Terminverwaltung
+Exec=lunakalender
+Icon=lunakalender
+Terminal=false
+Categories=Office;Calendar;
+StartupNotify=true

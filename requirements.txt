@@ -1,0 +1,5 @@
+# Python-Pakete für pip-basierte Installation in einer virtuellen Umgebung.
+# Tkinter und GTK/PyGObject werden als Systemabhängigkeiten über apt installiert.
+pystray
+Pillow
+ephem
