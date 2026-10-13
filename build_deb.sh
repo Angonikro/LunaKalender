@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-VERSION=1.3.9
+VERSION=1.4.0
 BUILD="$ROOT/build/lunakalender"
 DIST="$ROOT/dist"
 rm -rf "$BUILD" "$DIST"

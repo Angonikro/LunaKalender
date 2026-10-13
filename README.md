@@ -1,14 +1,11 @@
-# LunaKalender 1.3.9
+# LunaKalender 1.4.0
 
 Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerungen, Schulferien, Feiertagen sowie Sonnen- und Mondinformationen. Für Debian und Raspberry Pi ist die Installation über das Debian-Paket der einfachste Weg.
-
-![LunaKalender](lunakalender1.png)
-
-[Github Seite](https://github.com/Angonikro/LunaKalender/)
 
 ## Funktionen
 
 - Monatsansicht mit Navigation und Hervorhebung des ausgewählten Tages
+- Eigene monochrome Mondphasengrafiken mit 60 Beleuchtungsstufen; die Mondform verändert sich von Tag zu Tag (zunehmend rechts hell, abnehmend links hell)
 - Lokale Termine, Notizen und Terminerinnerungen mit optionalem Erinnerungston
 - Wiederkehrende jährliche Termine
 - Schulferien und gesetzliche Feiertage für das ausgewählte Bundesland
@@ -57,10 +54,10 @@ Termine, Einstellungen und Kontakte werden lokal gespeichert. Für Ferien- und F
 
 ## Installation auf Debian / Raspberry Pi (empfohlen)
 
-Lade `lunakalender_1.3.9_all.deb` aus dem GitHub-Release herunter und installiere es im Download-Ordner:
+Lade `lunakalender_1.4.0_all.deb` aus dem GitHub-Release herunter und installiere es im Download-Ordner:
 
 ```bash
-sudo apt install ./lunakalender_1.3.9_all.deb
+sudo apt install ./lunakalender_1.4.0_all.deb
 ```
 
 Das Paket installiert die benötigten Systemabhängigkeiten. Eine virtuelle Umgebung (`venv`) ist nicht erforderlich.
@@ -106,3 +103,8 @@ Die folgenden Schritte verwenden die von Debian bereitgestellten Systempakete. E
 Für Debian und Raspberry Pi wird die Paketinstallation mit Systemabhängigkeiten empfohlen. Wenn du bewusst `pip` verwenden möchtest, nutze dafür eine virtuelle Umgebung, um die systemweite Python-Installation nicht zu verändern.
 
 73 de DO2QG Andreas
+
+
+### Mondphasen-Bezeichnungen
+
+Die Viertelphasen werden in der Oberfläche verständlicher als **Halbmond (zunehmend)** und **Halbmond (abnehmend)** bezeichnet. Die Mondgrafiken und die astronomische Berechnung bleiben unverändert.

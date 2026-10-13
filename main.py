@@ -20,9 +20,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from tkinter import messagebox, simpledialog, ttk
 from urllib.parse import urljoin
+from PIL import Image, ImageDraw, ImageTk
 
 APP_NAME = "LunaKalender"
-VERSION = "1.3.9"
+VERSION = "1.4.0"
 DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "lunakalender"
 EVENTS_FILE = DATA_DIR / "events.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
@@ -33,9 +34,61 @@ STATE_CODES = {"Baden-Württemberg":"DE-BW", "Bayern":"DE-BY", "Berlin":"DE-BE",
 KMK_URL = "https://www.kmk.org/service/ferienregelung/ferienkalender.html"
 STATES = ("Baden-Württemberg", "Bayern", "Berlin", "Brandenburg", "Bremen", "Hamburg", "Hessen", "Mecklenburg-Vorpommern", "Niedersachsen", "Nordrhein-Westfalen", "Rheinland-Pfalz", "Saarland", "Sachsen", "Sachsen-Anhalt", "Schleswig-Holstein", "Thüringen")
 SYNODIC_MONTH = 29.530588853
-REFERENCE_NEW_MOON = 2000.0
-PHASES = ("🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘")
-PHASE_NAMES = ("Neumond", "Zunehmende Sichel", "Erstes Viertel", "Zunehmender Mond", "Vollmond", "Abnehmender Mond", "Letztes Viertel", "Abnehmende Sichel")
+REFERENCE_NEW_MOON = 2451550.26  # Julianisches Datum des Neumonds am 06.01.2000
+# Mondphasen werden als selbst gezeichnete Grafiken dargestellt, nicht als Emoji.
+# Die beleuchtete Seite ist bei zunehmenden Phasen rechts und bei abnehmenden links.
+PHASE_NAMES = ("Neumond", "Zunehmende Sichel", "Halbmond (zunehmend)", "Zunehmender Mond", "Vollmond", "Abnehmender Mond", "Halbmond (abnehmend)", "Abnehmende Sichel")
+
+def moon_phase_fraction(day):
+    """Mondalter als Anteil des synodischen Monats (0=Neumond, 0.5=Vollmond)."""
+    ordinal = day.toordinal() + 1721424.5
+    age = (ordinal - REFERENCE_NEW_MOON) % SYNODIC_MONTH
+    return age / SYNODIC_MONTH
+
+
+def make_moon_images(root, size=24, steps=60):
+    """Erzeuge viele Mondgrafiken mit täglich variierender Beleuchtung."""
+    scale = 4
+    canvas = size * scale
+    radius = canvas * 0.44
+    cx = cy = (canvas - 1) / 2
+    images = []
+    for step in range(steps):
+        fraction = step / steps
+        angle = 2 * math.pi * fraction
+        # Sehr schmale Sicheln leicht betonen, damit Tagesunterschiede
+        # bei 28 px sichtbar bleiben; übrige Phasen bleiben geometrisch unverzerrt.
+        raw_cosine = math.cos(angle)
+        if fraction < 0.15 or fraction > 0.85:
+            cosine = max(-1.0, min(1.0, 1.0 - 2.5 * (1.0 - raw_cosine)))
+            # Eine Sichel knapp nach Neumond soll bei kleiner Icongröße erkennbar sein.
+            if 0.03 < fraction < 0.07:
+                cosine = min(cosine, 0.72)
+        else:
+            cosine = raw_cosine
+        image = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+        pixels = image.load()
+        for y in range(canvas):
+            dy = (y - cy) / radius
+            limb = max(0.0, 1.0 - dy * dy) ** 0.5
+            for x in range(canvas):
+                dx = (x - cx) / radius
+                if dx * dx + dy * dy <= 1.0:
+                    if fraction < 0.005:
+                        lit = False
+                    elif fraction > 0.495 and fraction < 0.505:
+                        lit = True
+                    elif fraction < 0.5:
+                        lit = dx >= cosine * limb
+                    else:
+                        lit = dx <= -cosine * limb
+                    pixels[x, y] = (248, 250, 252, 255) if lit else (12, 18, 30, 255)
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((cx-radius, cy-radius, cx+radius, cy+radius),
+                     outline=(155, 174, 199, 255), width=max(1, scale))
+        image = image.resize((size, size), Image.Resampling.LANCZOS)
+        images.append(ImageTk.PhotoImage(image, master=root))
+    return tuple(images)
 
 class CalendarLinks(HTMLParser):
     """Liest Kalender-Links und deren Linktexte aus dem KMK-HTML."""
@@ -50,9 +103,11 @@ class CalendarLinks(HTMLParser):
             self.links.append((self._href, " ".join("".join(self._text).split()))); self._href = None; self._text = []
 
 def moon_phase(day):
-    ordinal = day.toordinal() + 1721424.5; age = (ordinal - REFERENCE_NEW_MOON) % SYNODIC_MONTH
-    index = int((age / SYNODIC_MONTH * 8 + 0.5)) % 8
-    return PHASES[index], PHASE_NAMES[index]
+    """Liefert Phasenindex und Namen; der Index steuert die eigene Mondgrafik."""
+    ordinal = day.toordinal() + 1721424.5
+    age = (ordinal - REFERENCE_NEW_MOON) % SYNODIC_MONTH
+    index = int((age / SYNODIC_MONTH * 8 + 1.0)) % 8
+    return index, PHASE_NAMES[index]
 
 def parse_ical(text):
     """Liest ganztägige VEVENT-Termine aus iCalendar-Text (auch gefaltete Zeilen)."""
@@ -82,6 +137,7 @@ def _state_match(label):
 class LunaKalender:
     def __init__(self, root):
         self.root = root; self.root.title(f"{APP_NAME} {VERSION}"); self.root.geometry("1100x700"); self.root.minsize(900, 560)
+        self._moon_images = make_moon_images(root, 28)
         self.today = date.today(); self.year, self.month = self.today.year, self.today.month; self.selected = self.today
         self.events = self._load_json(EVENTS_FILE, {})
         settings = self._load_json(SETTINGS_FILE, {"dark": False, "tray": False, "state": "", "sound_enabled": False, "sound_backend": "ALSA", "sound_device": "default"})
@@ -254,22 +310,22 @@ class LunaKalender:
         for i, (row, col) in enumerate((r, c) for r in range(1, 7) for c in range(7)):
             day = weeks[row - 1][col]; btn = self.day_buttons[i]
             if not day: btn.configure(text="", state="disabled", bg=bg); continue
-            current = date(self.year, self.month, day); count = len(self._events_for_day(current)); holiday = self._holiday_for(current); public_holiday = self._public_holiday_for(current); color = selected if current == self.selected else (today_color if current == self.today else ("#352b35" if self.dark and col in (5, 6) else ("#fff5f3" if (not self.dark and col in (5, 6)) else cell))); symbol, _ = moon_phase(current)
-            btn.configure(text=f"{day} {symbol}" + ("\n🏖" if holiday else "") + ("\n★" if public_holiday else "") + (f"\n• {count}" if count else ""), state="normal", bg=color, fg=fg, relief="solid" if current == self.selected else "flat", bd=1 if current == self.selected else 0)
+            current = date(self.year, self.month, day); count = len(self._events_for_day(current)); holiday = self._holiday_for(current); public_holiday = self._public_holiday_for(current); color = selected if current == self.selected else (today_color if current == self.today else ("#352b35" if self.dark and col in (5, 6) else ("#fff5f3" if (not self.dark and col in (5, 6)) else cell))); phase_index, _ = moon_phase(current)
+            btn.configure(text=f"{day}" + ("\n🏖" if holiday else "") + ("\n★" if public_holiday else "") + (f"\n• {count}" if count else ""), image=self._moon_images[int(moon_phase_fraction(current) * len(self._moon_images)) % len(self._moon_images)], compound="left", state="normal", bg=color, fg=fg, relief="solid" if current == self.selected else "flat", bd=1 if current == self.selected else 0)
     def _select_cell(self, row, col):
         weeks = calendar.monthcalendar(self.year, self.month); weeks += [[0] * 7] * (6 - len(weeks)); day = weeks[row - 1][col]
         if day: self.selected = date(self.year, self.month, day); self._draw_month(); self._show_events()
     def _show_events(self):
         self.selected_label.configure(text="Termine am ausgewählten Tag")
-        symbol, name = moon_phase(self.selected)
+        phase_index, name = moon_phase(self.selected)
         holiday_name = self._public_holiday_for(self.selected)
         school_holiday = self._holiday_for(self.selected)
-        details = [f"{self.selected.strftime('%d.%m.%Y')} · {symbol} {name}"]
+        details = [f"{self.selected.strftime('%d.%m.%Y')} · {name}"]
         if holiday_name:
             details.append(f"Feiertag: {holiday_name}")
         if school_holiday:
             details.append(f"Schulferien: {school_holiday}")
-        self.phase_label.configure(text="\n".join(details))
+        self.phase_label.configure(text="\n".join(details), image=self._moon_images[int(moon_phase_fraction(self.selected) * len(self._moon_images)) % len(self._moon_images)], compound="left")
         self.event_list.delete(0, tk.END)
         self._visible_event_refs = self._events_for_day(self.selected)
         self._visible_event_refs.sort(key=lambda ref: ref[1].get("time", ""))
@@ -648,7 +704,7 @@ class LunaKalender:
         popup.resizable(False, False)
         popup.configure(bg="#101a2c")
         popup.overrideredirect(True)
-        width, height = 370, 560
+        width, height = 420, 560
         popup.update_idletasks()
         x = max(6, popup.winfo_screenwidth() - width - 16)
         y = max(6, popup.winfo_screenheight() - height - 70)
@@ -668,10 +724,17 @@ class LunaKalender:
         tk.Button(nav, text="Heute", command=lambda: choose_day(date.today()), bg="#23314b", fg="white", relief="flat").pack(side="left", padx=2)
         tk.Button(nav, text="›", width=3, command=lambda: shift_month(1), bg="#23314b", fg="white", relief="flat").pack(side="left", padx=2)
         grid = tk.Frame(popup, bg="#101a2c", padx=8); grid.pack(fill="x")
-        weekdays = tk.Frame(grid, bg="#101a2c"); weekdays.pack(fill="x")
-        for wd in ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"):
-            tk.Label(weekdays, text=wd, width=4, bg="#101a2c", fg="#b8c8e8", font=("TkDefaultFont", 9, "bold")).pack(side="left", expand=True)
-        daygrid = tk.Frame(grid, bg="#101a2c"); daygrid.pack(fill="x")
+        weekdays = tk.Frame(grid, bg="#101a2c")
+        weekdays.pack(fill="x")
+        for col, wd in enumerate(("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")):
+            weekdays.grid_columnconfigure(col, weight=1, uniform="calendar-days")
+            tk.Label(weekdays, text=wd, bg="#101a2c", fg="#b8c8e8",
+                     font=("TkDefaultFont", 9, "bold"), anchor="center").grid(
+                         row=0, column=col, sticky="nsew", padx=1, pady=2)
+        daygrid = tk.Frame(grid, bg="#101a2c")
+        daygrid.pack(fill="x")
+        for col in range(7):
+            daygrid.grid_columnconfigure(col, weight=1, uniform="calendar-days")
         detail = tk.Frame(popup, bg="#17243a", padx=12, pady=10); detail.pack(fill="both", expand=True, padx=9, pady=(8, 9))
         day_label = tk.Label(detail, text="", bg="#17243a", fg="white", anchor="w", font=("TkDefaultFont", 10, "bold")); day_label.pack(fill="x", pady=(0, 7))
         sun1 = tk.Label(detail, text="", bg="#17243a", fg="#ffd54f", anchor="w", font=("TkDefaultFont", 10, "bold")); sun1.pack(fill="x", pady=2)
@@ -682,17 +745,29 @@ class LunaKalender:
         tk.Button(detail, text="📅 Vollständigen Kalender öffnen", command=self._open_main_from_popup, bg="#174d86", fg="white", relief="flat", pady=5).pack(fill="x", pady=(9, 0))
 
         def draw_month():
-            for child in daygrid.winfo_children(): child.destroy()
+            for child in daygrid.winfo_children():
+                child.destroy()
             names = ("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember")
             month_label.configure(text=f"{names[state['month']-1]} {state['year']}")
-            for week in calendar.monthcalendar(state['year'], state['month']):
-                row = tk.Frame(daygrid, bg="#101a2c"); row.pack(fill="x")
+            weeks = calendar.monthcalendar(state['year'], state['month'])
+            for row_index, week in enumerate(weeks):
                 for col, number in enumerate(week):
                     if not number:
-                        tk.Label(row, text="", width=4, height=2, bg="#101a2c").pack(side="left", expand=True, fill="x", padx=1, pady=1); continue
-                    d = date(state['year'], state['month'], number); symbol, _phase = moon_phase(d)
+                        cell = tk.Frame(daygrid, bg="#101a2c", height=31)
+                        cell.grid(row=row_index, column=col, sticky="nsew", padx=1, pady=1)
+                        cell.grid_propagate(False)
+                        continue
+                    d = date(state['year'], state['month'], number)
+                    phase_index, _phase = moon_phase(d)
+                    moon_slot = int(moon_phase_fraction(d) * len(self._moon_images)) % len(self._moon_images)
                     bg = "#1765ad" if d == state['day'] else ("#422d42" if col >= 5 else "#202b40")
-                    tk.Button(row, text=f"{number} {symbol}", width=4, height=1, bg=bg, fg="white", activebackground="#2d72b9", activeforeground="white", relief="flat", font=("TkDefaultFont", 8), command=lambda chosen=d: choose_day(chosen)).pack(side="left", expand=True, fill="x", padx=1, pady=1)
+                    btn = tk.Button(daygrid, text=f"{number}", image=self._moon_images[moon_slot], compound="left", bg=bg, fg="white",
+                                    activebackground="#2d72b9", activeforeground="white",
+                                    relief="flat", font=("TkDefaultFont", 8), height=1,
+                                    command=lambda chosen=d: choose_day(chosen))
+                    btn.grid(row=row_index, column=col, sticky="nsew", padx=1, pady=1)
+            for row_index in range(len(weeks)):
+                daygrid.grid_rowconfigure(row_index, minsize=31, uniform="calendar-weeks")
         def shift_month(offset):
             month, year = state['month'] + offset, state['year']
             if month < 1: month, year = 12, year - 1
@@ -703,7 +778,8 @@ class LunaKalender:
         def choose_day(day):
             state['day'], state['year'], state['month'] = day, day.year, day.month
             draw_month()
-            day_label.configure(text=f"📅 {day.strftime('%d.%m.%Y')}  ·  {moon_phase(day)[1]}")
+            phase_index, phase_name = moon_phase(day)
+            day_label.configure(text=f"📅 {day.strftime('%d.%m.%Y')}  ·  {phase_name}", image=self._moon_images[int(moon_phase_fraction(day) * len(self._moon_images)) % len(self._moon_images)], compound="left")
             try:
                 import ephem
                 observer = ephem.Observer(); observer.lat = str(float(self.latitude)); observer.lon = str(float(self.longitude)); observer.elevation = 0; observer.pressure = 1010
@@ -721,7 +797,8 @@ class LunaKalender:
                 sun2.configure(text=f"🌇 Sonnenuntergang   {times[('sun','set')]}")
                 moon1.configure(text=f"🌙 Mondaufgang        {times[('moon','rise')]}")
                 moon2.configure(text=f"🌌 Monduntergang      {times[('moon','set')]}")
-                phase_label.configure(text=f"📍 {self.latitude}, {self.longitude}  ·  {moon_phase(day)[0]}")
+                phase_index, phase_name = moon_phase(day)
+                phase_label.configure(text=f"📍 {self.latitude}, {self.longitude}  ·  {phase_name}", image=self._moon_images[int(moon_phase_fraction(day) * len(self._moon_images)) % len(self._moon_images)], compound="left")
             except Exception:
                 sun1.configure(text="☀️ Sonnenzeiten: python3-ephem benötigt")
                 sun2.configure(text="")
