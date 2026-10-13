@@ -1,16 +1,21 @@
 # LunaKalender – Änderungsprotokoll
 
+## 1.3.9 – Toneinstellungen und Dokumentation
+- Sound-Treiber-Auswahl auf PulseAudio und ALSA beschränkt.
+- PulseAudio-Wiedergabe über `paplay`.
+- ALSA-Geräteerkennung über `aplay -L` und `aplay -l`; verfügbare USB-Soundkarten und HDMI-Ausgänge werden angeboten, sofern Linux sie meldet.
+- Auswahl des Sound-Treibers, ALSA-Ausgabegeräts und Ton-Aktivierung werden gespeichert.
+- README vollständig wiederhergestellt und auf Version 1.3.9 aktualisiert.
+- Debian-Paket und GitHub-Quellarchiv bleiben bei Version 1.3.9.
+
 ## 1.3.8
-- Checkbox in „Im Tray starten“ umbenannt.
-- Autostart startet LunaKalender bei der Linux-Anmeldung mit normal sichtbarem Hauptfenster und aktiviertem Tray-Symbol; kein versteckter Start mehr.
+- Checkbox „Im Tray starten“: bei aktivierter Option startet LunaKalender bei der nächsten Benutzeranmeldung verborgen im Tray; das Hauptfenster bleibt geschlossen.
+- Manueller Start über Desktop- oder Menüeintrag öffnet weiterhin das Hauptfenster normal sichtbar.
 
-Version 1.3.7 – Autostart im Tray
-
-- Neues Häkchen „Autostart im Tray“: startet LunaKalender bei der Benutzeranmeldung direkt im Infobereich.
+## 1.3.7 – Autostart im Tray
+- Autostart im Tray: startet LunaKalender bei der Benutzeranmeldung direkt im Infobereich.
 - Aktivierung schaltet das Tray-Symbol ein; Deaktivierung entfernt den benutzerspezifischen Autostart-Eintrag.
 - Manueller Start öffnet weiterhin das Kalenderfenster.
-
-# LunaKalender – Änderungsprotokoll
 
 ## Version 1.3.6
 - README vollständig neu strukturiert und Installationsanleitung aktualisiert.

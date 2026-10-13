@@ -22,7 +22,7 @@ from tkinter import messagebox, simpledialog, ttk
 from urllib.parse import urljoin
 
 APP_NAME = "LunaKalender"
-VERSION = "1.3.8"
+VERSION = "1.3.9"
 DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "lunakalender"
 EVENTS_FILE = DATA_DIR / "events.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
@@ -84,10 +84,10 @@ class LunaKalender:
         self.root = root; self.root.title(f"{APP_NAME} {VERSION}"); self.root.geometry("1100x700"); self.root.minsize(900, 560)
         self.today = date.today(); self.year, self.month = self.today.year, self.today.month; self.selected = self.today
         self.events = self._load_json(EVENTS_FILE, {})
-        settings = self._load_json(SETTINGS_FILE, {"dark": False, "tray": False, "state": "", "sound_enabled": False, "sound_device": "default"})
+        settings = self._load_json(SETTINGS_FILE, {"dark": False, "tray": False, "state": "", "sound_enabled": False, "sound_backend": "ALSA", "sound_device": "default"})
         self.autostart_enabled = (Path.home() / ".config/autostart/lunakalender.desktop").exists()
         self.dark = bool(settings.get("dark", False)); self.tray_enabled = bool(settings.get("tray", False)); self.state = settings.get("state", "")
-        self.sound_enabled = bool(settings.get("sound_enabled", False)); self.sound_device = str(settings.get("sound_device", "default")); self._alerted_events = set()
+        self.sound_enabled = bool(settings.get("sound_enabled", False)); self.sound_backend = str(settings.get("sound_backend", "ALSA")); self.sound_device = str(settings.get("sound_device", "default")); self._alerted_events = set()
         self.latitude = str(settings.get("latitude", "51.7383")); self.longitude = str(settings.get("longitude", "9.0196"))
         if self.state not in STATES: self.state = ""
         self.holiday_cache = self._load_json(HOLIDAY_CACHE_FILE, {}); self.holidays = self.holiday_cache.get(self.state, []) if self.state else []
@@ -107,7 +107,7 @@ class LunaKalender:
             return value if isinstance(value, type(default)) else default
         except (OSError, ValueError): return default
     def _save_settings(self):
-        DATA_DIR.mkdir(parents=True, exist_ok=True); SETTINGS_FILE.write_text(json.dumps({"dark": self.dark, "tray": self.tray_enabled, "state": self.state, "sound_enabled": self.sound_enabled, "sound_device": self.sound_device, "latitude": self.latitude, "longitude": self.longitude}), encoding="utf-8")
+        DATA_DIR.mkdir(parents=True, exist_ok=True); SETTINGS_FILE.write_text(json.dumps({"dark": self.dark, "tray": self.tray_enabled, "state": self.state, "sound_enabled": self.sound_enabled, "sound_backend": self.sound_backend, "sound_device": self.sound_device, "latitude": self.latitude, "longitude": self.longitude}), encoding="utf-8")
     def _save_holiday_cache(self):
         DATA_DIR.mkdir(parents=True, exist_ok=True); tmp = HOLIDAY_CACHE_FILE.with_suffix(".tmp"); tmp.write_text(json.dumps(self.holiday_cache, ensure_ascii=False), encoding="utf-8"); tmp.replace(HOLIDAY_CACHE_FILE)
     def _fetch_kmk_ics(self, state):
@@ -161,9 +161,9 @@ class LunaKalender:
     def _build(self):
         top = ttk.Frame(self.root, padding=10); top.pack(fill="x")
         ttk.Button(top, text="‹", width=4, command=lambda: self._shift(-1)).pack(side="left"); ttk.Button(top, text="Heute", command=self._go_today).pack(side="left", padx=5); ttk.Button(top, text="›", width=4, command=lambda: self._shift(1)).pack(side="left")
-        self.title_label = ttk.Label(top, text="", font=("TkDefaultFont", 16, "bold")); self.title_label.pack(side="left", padx=14); self.state_var = tk.StringVar(value=self.state)
+        self.title_label = ttk.Label(top, text="", font=("TkDefaultFont", 16, "bold")); self.title_label.pack(side="left", padx=14); ttk.Button(top, text="Ton-Einstellungen", command=self._sound_settings).pack(side="left", padx=(0, 8)); self.state_var = tk.StringVar(value=self.state)
         self.state_box = ttk.Combobox(top, textvariable=self.state_var, values=STATES, state="readonly", width=19); self.state_box.pack(side="right", padx=(8, 0)); self.state_box.bind("<<ComboboxSelected>>", self._state_changed)
-        self.tray_var = tk.BooleanVar(value=self.tray_enabled); ttk.Checkbutton(top, text="Infobereichssymbol", variable=self.tray_var, command=self._toggle_tray).pack(side="right", padx=(8, 0)); self.autostart_var = tk.BooleanVar(value=self.autostart_enabled); ttk.Checkbutton(top, text="Im Tray starten", variable=self.autostart_var, command=self._toggle_autostart).pack(side="right", padx=(8, 0)); self.dark_button = ttk.Button(top, text="Dark Mode", command=self._toggle_dark); self.dark_button.pack(side="right"); ttk.Button(top, text="Ton-Einstellungen", command=self._sound_settings).pack(side="right", padx=6)
+        self.tray_var = tk.BooleanVar(value=self.tray_enabled); ttk.Checkbutton(top, text="Infobereichssymbol", variable=self.tray_var, command=self._toggle_tray).pack(side="right", padx=(8, 0)); self.autostart_var = tk.BooleanVar(value=self.autostart_enabled); ttk.Checkbutton(top, text="Im Tray starten", variable=self.autostart_var, command=self._toggle_autostart).pack(side="right", padx=(8, 0)); self.dark_button = ttk.Button(top, text="Dark Mode", command=self._toggle_dark); self.dark_button.pack(side="right")
         body = ttk.Frame(self.root, padding=(10, 0, 10, 10)); body.pack(fill="both", expand=True)
         # Weighted grid keeps both calendar and detail panel visible when maximized.
         body.grid_rowconfigure(0, weight=1)
@@ -365,35 +365,60 @@ class LunaKalender:
         n = self.year * 12 + self.month - 1 + amount; self.year, m = divmod(n, 12); self.month = m + 1; self.selected = date(self.year, self.month, 1); self._draw_month(); self._show_events()
     def _go_today(self): self.today = date.today(); self.year, self.month, self.selected = self.today.year, self.today.month, self.today; self._draw_month(); self._show_events()
     def _available_sound_devices(self):
+        """Kompakte ALSA-Auswahl: Standard sowie erkannte Hardware-Ausgänge."""
         devices = ["default"]
         if shutil.which("aplay"):
             try:
                 output = subprocess.run(["aplay", "-L"], capture_output=True, text=True, timeout=3).stdout
                 for line in output.splitlines():
-                    if line and not line[0].isspace() and line not in devices and not line.startswith(("null", "pulse", "sysdefault:CARD=")):
-                        devices.append(line)
+                    item = line.strip()
+                    if not item or line[:1].isspace():
+                        continue
+                    low = item.lower()
+                    # Nur verständliche Hardware-/Plug-Geräte; keine Plugin-Flut.
+                    if low.startswith(("hw:", "plughw:", "front:", "surround", "iec958:", "hdmi:")):
+                        if item not in devices:
+                            devices.append(item)
             except (OSError, subprocess.SubprocessError):
                 pass
-        return devices
+        # Ergänze Karten aus aplay -l explizit, damit USB und HDMI auffindbar sind.
+        if shutil.which("aplay"):
+            try:
+                output = subprocess.run(["aplay", "-l"], capture_output=True, text=True, timeout=3).stdout
+                for line in output.splitlines():
+                    match = re.search(r"card (\d+): ([^,]+), device (\d+):", line)
+                    if match:
+                        card, name, dev = match.groups()
+                        label = f"hw:{card},{dev} ({name})"
+                        # aplay benötigt als -D nur hw:C,D, Label bleibt lesbar.
+                        devices.append(label)
+            except (OSError, subprocess.SubprocessError):
+                pass
+        return list(dict.fromkeys(devices))
 
     def _sound_settings(self):
         dialog = tk.Toplevel(self.root); dialog.title("Ton-Einstellungen"); dialog.transient(self.root); dialog.resizable(False, False)
         frame = ttk.Frame(dialog, padding=16); frame.pack(fill="both", expand=True)
-        enabled = tk.BooleanVar(value=self.sound_enabled); device = tk.StringVar(value=self.sound_device)
+        enabled = tk.BooleanVar(value=self.sound_enabled)
+        backend = tk.StringVar(value=self.sound_backend if self.sound_backend in ("PulseAudio", "ALSA") else "ALSA")
+        device = tk.StringVar(value=self.sound_device)
         ttk.Checkbutton(frame, text="Erinnerungston aktivieren", variable=enabled).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 12))
-        ttk.Label(frame, text="Soundkarte / ALSA-Ausgabegerät:").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=5)
+        ttk.Label(frame, text="Sound-Treiber:").grid(row=1, column=0, sticky="w", padx=(0, 10), pady=5)
+        ttk.Combobox(frame, textvariable=backend, values=("PulseAudio", "ALSA"), state="readonly", width=28).grid(row=1, column=1, sticky="ew", pady=5)
+        ttk.Label(frame, text="ALSA-Soundkarte:").grid(row=2, column=0, sticky="w", padx=(0, 10), pady=5)
         choices = self._available_sound_devices()
         if device.get() not in choices: choices.append(device.get())
-        combo = ttk.Combobox(frame, textvariable=device, values=choices, state="readonly", width=32); combo.grid(row=1, column=1, sticky="ew", pady=5)
-        ttk.Label(frame, text="Standard verwendet die Linux-Standardausgabe.\nWenn aplay fehlt, wird der Systemton versucht.", wraplength=390).grid(row=2, column=0, columnspan=2, sticky="w", pady=8)
+        combo = ttk.Combobox(frame, textvariable=device, values=choices, state="readonly", width=34); combo.grid(row=2, column=1, sticky="ew", pady=5)
+        ttk.Label(frame, text="PulseAudio nutzt die Standardausgabe. Bei ALSA kannst du Standard, USB- oder HDMI-Ausgänge wählen.\nFür PulseAudio muss paplay verfügbar sein.", wraplength=420).grid(row=3, column=0, columnspan=2, sticky="w", pady=8)
         def test():
-            old_enabled, old_device = self.sound_enabled, self.sound_device
-            self.sound_enabled, self.sound_device = True, device.get()
+            old_enabled, old_backend, old_device = self.sound_enabled, self.sound_backend, self.sound_device
+            self.sound_enabled, self.sound_backend, self.sound_device = True, backend.get(), device.get()
             self._play_reminder_sound()
-            self.sound_enabled, self.sound_device = old_enabled, old_device
+            self.sound_enabled, self.sound_backend, self.sound_device = old_enabled, old_backend, old_device
         def save():
-            self.sound_enabled, self.sound_device = enabled.get(), device.get(); self._save_settings(); dialog.destroy()
-        buttons = ttk.Frame(frame); buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(8, 0))
+            self.sound_enabled, self.sound_backend, self.sound_device = enabled.get(), backend.get(), device.get()
+            self._save_settings(); dialog.destroy()
+        buttons = ttk.Frame(frame); buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(8, 0))
         ttk.Button(buttons, text="Testton", command=test).pack(side="left", padx=(0, 8)); ttk.Button(buttons, text="Abbrechen", command=dialog.destroy).pack(side="left", padx=(0, 8)); ttk.Button(buttons, text="Speichern", command=save).pack(side="left")
         dialog.grab_set(); dialog.wait_window()
 
@@ -401,8 +426,30 @@ class LunaKalender:
         """Spielt den Erinnerungston außerhalb der Tk-Ereignisschleife ab."""
         if not self.sound_enabled:
             return
+        backend = getattr(self, "sound_backend", "ALSA")
+        if backend == "PulseAudio" and shutil.which("paplay"):
+            def worker():
+                try:
+                    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+                        rate, duration = 22050, 0.45
+                        with wave.open(tmp.name, "wb") as wav:
+                            wav.setnchannels(1); wav.setsampwidth(2); wav.setframerate(rate)
+                            samples = bytearray()
+                            for i in range(int(rate * duration)):
+                                envelope = min(1.0, i / 400, (rate * duration - i) / 1000)
+                                samples.extend(struct.pack("<h", int(9000 * envelope * math.sin(2 * math.pi * 880 * i / rate))))
+                            wav.writeframes(samples)
+                        subprocess.run(["paplay", tmp.name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5, check=False)
+                except (OSError, subprocess.SubprocessError, wave.Error):
+                    try: self.root.after(0, self.root.bell)
+                    except tk.TclError: pass
+            threading.Thread(target=worker, daemon=True).start()
+            return
         if shutil.which("aplay"):
             device = self.sound_device or "default"
+            # Einträge mit erklärendem Kartennamen in echte ALSA-Device-IDs umwandeln.
+            match = re.match(r"hw:(\d+),(\d+) \(", device)
+            if match: device = f"hw:{match.group(1)},{match.group(2)}"
             def worker():
                 try:
                     with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:

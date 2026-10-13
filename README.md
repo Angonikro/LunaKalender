@@ -1,10 +1,6 @@
-# LunaKalender 1.3.8
+# LunaKalender 1.3.9
 
 Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerungen, Schulferien, Feiertagen sowie Sonnen- und Mondinformationen. Für Debian und Raspberry Pi ist die Installation über das Debian-Paket der einfachste Weg.
-
-![LunaKalender](lunakalender.png)
-
-[Github Seite](https://github.com/Angonikro/LunaKalender/)
 
 ## Funktionen
 
@@ -19,6 +15,8 @@ Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerun
 - Import und Export von Terminen als iCalendar-Dateien (`.ics`) und Kontakten als vCard (`.vcf`)
 - Lokale Speicherung von Einstellungen, Terminen und Kontakten
 
+
+
 ### Im Tray starten (ab 1.3.8)
 
 Aktiviere oben „Im Tray starten“, damit LunaKalender bei der nächsten Linux-Anmeldung automatisch **nur im Tray** startet; das Hauptfenster bleibt dabei verborgen. Ein normaler Start über den Desktop- oder Menüeintrag öffnet das Kalenderfenster weiterhin ganz normal. Zum Abschalten des automatischen Starts das Häkchen wieder entfernen.
@@ -29,7 +27,13 @@ Im Hauptkalender über **„☀ Sonne & 🌙 Mond“** oder im Tray-Popup werden
 
 ## Erinnerungen und Ton
 
-Termine mit Uhrzeit können zur eingestellten Zeit eine Erinnerung mit Titel und Notiz anzeigen. Der Erinnerungston lässt sich in **„Ton-Einstellungen“** aktivieren oder deaktivieren; **„Testton“** prüft die Ausgabe. Wenn `alsa-utils` installiert ist, kann ein Ausgabegerät aus der von `aplay -L` gelieferten Liste gewählt werden. `default` verwendet die Linux-Standardausgabe. Termine ohne Uhrzeit lösen keinen Erinnerungston aus. Damit Erinnerungen im Tray-Betrieb ausgeführt werden, muss LunaKalender weiterlaufen.
+Termine mit Uhrzeit können zur eingestellten Zeit eine Erinnerung mit Titel und Notiz anzeigen. Der Erinnerungston lässt sich in **„Ton-Einstellungen“** aktivieren oder deaktivieren; **„Testton“** prüft die Ausgabe. Als Sound-Treiber stehen ausschließlich **PulseAudio** und **ALSA** zur Verfügung:
+
+- **PulseAudio:** Wiedergabe über die Standardausgabe mit `paplay`.
+- **ALSA:** Auswahl von `default` oder einem erkannten Hardware-Ausgang. LunaKalender fragt dazu `aplay -L` und `aplay -l` ab; je nach Linux-Audiokonfiguration können beispielsweise USB-Soundkarten und HDMI-Ausgänge erscheinen.
+- Sound-Treiber, ALSA-Ausgabegerät und Aktivierung des Erinnerungstons werden lokal gespeichert.
+
+Die tatsächliche Geräteliste hängt von den installierten Audiowerkzeugen und der Konfiguration des Systems ab. Termine ohne Uhrzeit lösen keinen Erinnerungston aus. Damit Erinnerungen im Tray-Betrieb ausgeführt werden, muss LunaKalender weiterlaufen.
 
 
 
@@ -47,14 +51,12 @@ Termine, Einstellungen und Kontakte werden lokal gespeichert. Für Ferien- und F
 - `build_deb.sh` – Skript zum Erstellen des Debian-Pakets
 - `debian/` – Desktop-Datei und Programmsymbol
 
-## Hinweise
-
 ## Installation auf Debian / Raspberry Pi (empfohlen)
 
-Lade `lunakalender_1.3.8_all.deb` herunter und installiere es im Download-Ordner:
+Lade `lunakalender_1.3.9_all.deb` aus dem GitHub-Release herunter und installiere es im Download-Ordner:
 
 ```bash
-sudo apt install ./lunakalender_1.3.8_all.deb
+sudo apt install ./lunakalender_1.3.9_all.deb
 ```
 
 Das Paket installiert die benötigten Systemabhängigkeiten. Eine virtuelle Umgebung (`venv`) ist nicht erforderlich.
