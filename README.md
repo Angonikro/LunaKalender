@@ -15,7 +15,9 @@ Ein grafischer Monatskalender für Linux mit lokaler Terminverwaltung, Erinnerun
 - Import und Export von Terminen als iCalendar-Dateien (`.ics`) und Kontakten als vCard (`.vcf`)
 - Lokale Speicherung von Einstellungen, Terminen und Kontakten
 
+![LunaKalender](lunakalender.png)
 
+[Github Seite](https://github.com/Angonikro/LunaKalender/)
 
 ### Im Tray starten (ab 1.3.8)
 
